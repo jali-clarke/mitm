@@ -38,7 +38,11 @@ instance Actor Mitm where
 instance Logger Mitm where
     type LogFile Mitm = IO.Handle
 
-    newLogFile path = Mitm (IO.openBinaryFile path IO.AppendMode)
+    newLogFile path = Mitm $ do
+        handle <- IO.openBinaryFile path IO.AppendMode
+        IO.hSetBuffering handle IO.NoBuffering
+        pure handle
+
     closeLogFile logFile = Mitm (IO.hClose logFile)
 
     writeLogFile handle bytes = Mitm (Bytes.hPut handle bytes)
