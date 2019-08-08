@@ -24,6 +24,7 @@ dependencies:
 - bytestring == 0.10.8.2
 - network == 2.8.0.1
 - mtl == 2.2.2
+- async == 2.2.2
 
 library:
   source-dirs: src

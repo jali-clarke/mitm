@@ -3,9 +3,11 @@
 module Mitm (
     Mitm,
     runMitm,
-    liftIO
+    asyncMitm,
+    waitMitm
 ) where
 
+import Control.Concurrent.Async (Async, async, wait)
 import qualified Control.Concurrent.Chan as Chan
 import qualified System.IO as IO
 import qualified Data.ByteString.Lazy as Bytes
@@ -19,8 +21,11 @@ newtype Mitm a = Mitm (IO a) deriving (Functor, Applicative, Monad)
 runMitm :: Mitm a -> IO a
 runMitm (Mitm action) = action
 
-liftIO :: IO a -> Mitm a
-liftIO action = Mitm action
+asyncMitm :: Mitm a -> Mitm (Async a)
+asyncMitm (Mitm action) = Mitm (async action)
+
+waitMitm :: Async a -> Mitm a
+waitMitm handle = Mitm (wait handle)
 
 instance Actor Mitm where
     type Mailbox Mitm = Chan.Chan Bytes.ByteString
@@ -58,7 +63,8 @@ instance Communicator Mitm where
             Network.setSocketOption socket Network.ReusePort 1
             Network.bind socket (Network.addrAddress addrInfo)
             Network.listen socket 1
-            pure socket
+            (clientSocket, _) <- Network.accept socket
+            pure clientSocket
 
     closeConnection socket = Mitm (Network.close socket)
 

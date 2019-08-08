@@ -22,7 +22,17 @@ sendMessages connection sourceMailbox =
 
 spawnAction :: ((Connection Mitm, Mailbox Mitm, LogFile Mitm), (Connection Mitm, Mailbox Mitm, LogFile Mitm)) -> Mitm ()
 spawnAction (clientResources, serverResources) =
-    pure ()
+    let (socketToClient, clientResponseMailbox, clientLogFile) = clientResources
+        (socketToServer, serverRequestMailbox, serverLogFile) = serverResources
+    in do
+        requestToServerThread <- asyncMitm (sendMessages socketToServer serverRequestMailbox)
+        responseToClientThread <- asyncMitm (sendMessages socketToClient clientResponseMailbox)
+        requestFromClientThread <- asyncMitm (receiveMessagesAndNotify socketToClient serverRequestMailbox clientLogFile)
+        responseFromServerThread <- asyncMitm (receiveMessagesAndNotify socketToServer clientResponseMailbox serverLogFile)
+        waitMitm responseFromServerThread
+        waitMitm requestFromClientThread
+        waitMitm requestToServerThread
+        waitMitm responseToClientThread
 
 withResources :: (String, String) -> (String, String, String) -> Cont.ContT a Mitm ((Connection Mitm, Mailbox Mitm, LogFile Mitm), (Connection Mitm, Mailbox Mitm, LogFile Mitm))
 withResources (listenPort, clientLogFilePath) (hostAddress, hostPort, serverLogFilePath) =
