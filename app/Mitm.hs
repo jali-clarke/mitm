@@ -2,7 +2,8 @@
 
 module Mitm (
     Mitm,
-    runMitm
+    runMitm,
+    liftIO
 ) where
 
 import qualified Control.Concurrent.Chan as Chan
@@ -17,6 +18,9 @@ newtype Mitm a = Mitm (IO a) deriving (Functor, Applicative, Monad)
 
 runMitm :: Mitm a -> IO a
 runMitm (Mitm action) = action
+
+liftIO :: IO a -> Mitm a
+liftIO action = Mitm action
 
 instance Actor Mitm where
     type Mailbox Mitm = Chan.Chan Bytes.ByteString
