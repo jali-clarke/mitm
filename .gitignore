@@ -2,3 +2,4 @@
 mitm.cabal
 *~
 *.log
+stack.yaml.lock
