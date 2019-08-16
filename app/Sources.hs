@@ -8,10 +8,10 @@ import Network.Socket (Socket, SockAddr, accept)
 import Network.Socket.ByteString.Lazy (recv)
 
 import Actor
-import Daemon
+import Source
 
-socketReader :: Socket -> Mailbox IO ByteString -> IO (Daemon IO)
-socketReader socket mailbox = loopDaemon $ recv socket 1024 >>= writeMailbox mailbox
+socketReader :: Socket -> [Mailbox IO ByteString] -> IO ()
+socketReader socket = source (recv socket 1024)
 
-connectionAcceptor :: Socket -> Mailbox IO (Socket, SockAddr) -> IO (Daemon IO)
-connectionAcceptor listenSocket mailbox = loopDaemon $ accept listenSocket >>= writeMailbox mailbox
+connectionAcceptor :: Socket -> [Mailbox IO (Socket, SockAddr)] -> IO ()
+connectionAcceptor listenSocket = source (accept listenSocket)
