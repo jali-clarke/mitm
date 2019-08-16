@@ -8,6 +8,7 @@ module Actor (
     actorTerminal
 ) where
 
+import Control.Monad (forever)
 import qualified Control.Concurrent.Chan as C
 
 import Daemon
@@ -28,11 +29,10 @@ instance ActorContext IO where
 
 actorWithMailbox :: ActorContext m => Mailbox m a -> [Mailbox m b] -> (a -> m b) -> m ()
 actorWithMailbox source destinations callback =
-    let loop = do
+    let loop = forever $ do
             inMessage <- readMailbox source
             outMessage <- callback inMessage
             traverse (flip writeMailbox outMessage) destinations
-            loop
     in () <$ daemon loop
 
 actor :: ActorContext m => [Mailbox m b] -> (a -> m b) -> m (Mailbox m a)
