@@ -5,7 +5,8 @@ module Actor (
     
     actorWithMailbox,
     actor,
-    actorTerminal
+    actorTerminal,
+    forward
 ) where
 
 import Data.Functor (void)
@@ -41,3 +42,6 @@ actor destinations callback = do
 
 actorTerminal :: ActorContext m => (a -> m b) -> m (Mailbox m a)
 actorTerminal = actor []
+
+forward :: ActorContext m => [Mailbox m a] -> m (Mailbox m a)
+forward destinations = actor destinations pure

@@ -1,6 +1,5 @@
 module Actors (
-    fileWriter,
-    socketWriter
+    socketWriterManager
 ) where
 
 import qualified System.IO as IO
@@ -19,3 +18,10 @@ fileWriter filePath =
 
 socketWriter :: Socket -> IO (Mailbox IO ByteString)
 socketWriter socket = actorTerminal (sendAll socket)
+
+socketWriterManager :: Socket -> FilePath -> IO (Mailbox IO ByteString)
+socketWriterManager socket logFilePath =
+    do
+        loggerMailbox <- fileWriter logFilePath
+        socketMailbox <- socketWriter socket
+        forward [loggerMailbox, socketMailbox]
