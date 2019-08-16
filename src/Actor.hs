@@ -36,9 +36,10 @@ actorWithMailbox source destinations callback =
         traverse (flip writeMailbox outMessage) destinations
 
 actor :: ActorContext m => [Mailbox m b] -> (a -> m b) -> m (Mailbox m a)
-actor destinations callback = do
-    source <- newMailbox
-    source <$ actorWithMailbox source destinations callback
+actor destinations callback =
+    do
+        source <- newMailbox
+        source <$ actorWithMailbox source destinations callback
 
 actorTerminal :: ActorContext m => (a -> m b) -> m (Mailbox m a)
 actorTerminal = actor []
