@@ -3,6 +3,7 @@
 module Actor (
     ActorContext(..),
     
+    registerSourceTopLevel,
     registerSource,
     registerActor,
     registerActorWithMailbox,
@@ -30,10 +31,13 @@ instance ActorContext IO where
     getMessage = C.readChan
     putMessage = flip C.writeChan
 
-registerSource :: ActorContext m => m a -> [Mailbox m a] -> m ()
-registerSource action targets = daemon . forever $ do
+registerSourceTopLevel :: ActorContext m => m a -> [Mailbox m a] -> m ()
+registerSourceTopLevel action targets = forever $ do
     message <- action
     traverse (putMessage message) targets
+
+registerSource :: ActorContext m => m a -> [Mailbox m a] -> m ()
+registerSource action targets = daemon $ registerSourceTopLevel action targets
 
 registerActorWithMailbox :: ActorContext m => Mailbox m a -> [Mailbox m b] -> (a -> m b) -> m ()
 registerActorWithMailbox mailbox targets callback = registerSource (getMessage mailbox >>= callback) targets
