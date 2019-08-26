@@ -3,46 +3,45 @@
 module Actor (
     ActorContext(..),
     
-    actorWithMailbox,
-    actor,
-    actorTerminal,
-    forward
+    registerSource,
+    registerActor,
+    registerActorWithMailbox,
+    registerTerminal
 ) where
 
-import Data.Functor (void)
+import Control.Monad (forever)
 import qualified Control.Concurrent.Chan as C
 
 import Daemon
 
 class DaemonContext m => ActorContext m where
     type Mailbox m :: * -> *
-
+    
     newMailbox :: m (Mailbox m a)
-    readMailbox :: Mailbox m a -> m a
-    writeMailbox :: Mailbox m a -> a -> m ()
+
+    getMessage :: Mailbox m a -> m a
+    putMessage :: a -> Mailbox m a -> m ()
 
 instance ActorContext IO where
     type Mailbox IO = C.Chan
 
     newMailbox = C.newChan
-    readMailbox = C.readChan
-    writeMailbox = C.writeChan
 
-actorWithMailbox :: ActorContext m => Mailbox m a -> [Mailbox m b] -> (a -> m b) -> m ()
-actorWithMailbox source destinations callback =
-    void . loopDaemon $ do
-        inMessage <- readMailbox source
-        outMessage <- callback inMessage
-        traverse (flip writeMailbox outMessage) destinations
+    getMessage = C.readChan
+    putMessage = flip C.writeChan
 
-actor :: ActorContext m => [Mailbox m b] -> (a -> m b) -> m (Mailbox m a)
-actor destinations callback =
-    do
-        source <- newMailbox
-        source <$ actorWithMailbox source destinations callback
+registerSource :: ActorContext m => m a -> [Mailbox m a] -> m ()
+registerSource action targets = daemon . forever $ do
+    message <- action
+    traverse (putMessage message) targets
 
-actorTerminal :: ActorContext m => (a -> m b) -> m (Mailbox m a)
-actorTerminal = actor []
+registerActorWithMailbox :: ActorContext m => Mailbox m a -> [Mailbox m b] -> (a -> m b) -> m ()
+registerActorWithMailbox mailbox targets callback = registerSource (getMessage mailbox >>= callback) targets
 
-forward :: ActorContext m => [Mailbox m a] -> m (Mailbox m a)
-forward destinations = actor destinations pure
+registerActor :: ActorContext m => [Mailbox m b] -> (a -> m b) -> m (Mailbox m a)
+registerActor targets callback = do
+    mailbox <- newMailbox
+    mailbox <$ registerActorWithMailbox mailbox targets callback
+
+registerTerminal :: ActorContext m => (a -> m b) -> m (Mailbox m a)
+registerTerminal = registerActor []
