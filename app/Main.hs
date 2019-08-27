@@ -12,23 +12,31 @@ fileWriter filePath = do
     IO.hSetBuffering handle IO.NoBuffering
     registerTerminal (B.hPut handle)
 
-filePathForWriter :: N.SockAddr -> FilePath
-filePathForWriter = undefined
+connectionIdentifier :: N.SockAddr -> FilePath
+connectionIdentifier = const "connection.log"
 
-socketWriter :: String -> String -> IO (Mailbox IO B.ByteString)
-socketWriter host port = do
-    let hints = N.defaultHints {N.addrSocketType=N.Stream}
-    addrInfo : _ <- N.getAddrInfo (Just hints) (Just host) (Just port)
-    sock <- N.socket (N.addrFamily addrInfo) (N.addrSocketType addrInfo) (N.addrProtocol addrInfo)
-    N.connect sock (N.addrAddress addrInfo)
-    registerTerminal (NB.sendAll sock)
+socketWriter :: N.Socket -> IO (Mailbox IO B.ByteString)
+socketWriter socket = registerTerminal (NB.sendAll socket)
 
 socketReader :: N.Socket -> [Mailbox IO B.ByteString] -> IO ()
 socketReader socket = registerSource (NB.recv socket 1024)
 
 actorCreator :: String -> String -> IO (Mailbox IO (N.Socket, N.SockAddr))
-actorCreator host port = registerTerminal $ \(sock, addrInfo) ->
-    sequence [socketWriter host port, fileWriter (filePathForWriter addrInfo)] >>= socketReader sock
+actorCreator host port = registerTerminal $ \(acceptedSocket, clientAddrInfo) -> do
+    let identifier = connectionIdentifier clientAddrInfo
+        hints = N.defaultHints {N.addrSocketType=N.Stream}
+
+    serverAddrInfo : _ <- N.getAddrInfo (Just hints) (Just host) (Just port)
+    serverSocket <- N.socket (N.addrFamily serverAddrInfo) (N.addrSocketType serverAddrInfo) (N.addrProtocol serverAddrInfo)
+    N.connect serverSocket (N.addrAddress serverAddrInfo)
+
+    clientWriterMailbox <- socketWriter acceptedSocket
+    clientRequestLoggerMailbox <- fileWriter ("client_" ++ identifier)
+    serverWriterMailbox <- socketWriter serverSocket
+    serverResponseLoggerMailbox <- fileWriter ("server_" ++ identifier)
+
+    socketReader acceptedSocket [clientRequestLoggerMailbox, serverWriterMailbox]
+    socketReader serverSocket [serverResponseLoggerMailbox, clientWriterMailbox]
 
 main :: IO ()
 main = do
@@ -36,9 +44,10 @@ main = do
 
     let hints = N.defaultHints {N.addrSocketType=N.Stream, N.addrFlags=[N.AI_PASSIVE]}
     addrInfo : _ <- N.getAddrInfo (Just hints) (Nothing) (Just listenPort)
-    sock <- N.socket (N.addrFamily addrInfo) (N.addrSocketType addrInfo) (N.addrProtocol addrInfo)
-    N.setSocketOption sock N.ReuseAddr 1
-    N.bind sock (N.addrAddress addrInfo)
-    N.listen sock 5
+    socket <- N.socket (N.addrFamily addrInfo) (N.addrSocketType addrInfo) (N.addrProtocol addrInfo)
+    N.setSocketOption socket N.ReuseAddr 1
+    N.bind socket (N.addrAddress addrInfo)
+    N.listen socket 5
 
-    sequence [actorCreator host port] >>= registerSourceTopLevel (N.accept sock)
+    actorCreatorMailbox <- actorCreator host port
+    registerSourceTopLevel (N.accept socket) [actorCreatorMailbox]
