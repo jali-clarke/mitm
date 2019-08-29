@@ -1,4 +1,7 @@
-import qualified Control.Monad.IO.Class as MTL
+{-# LANGUAGE FlexibleContexts #-}
+
+import Control.Monad (when)
+import qualified Control.Monad.Except as MTL
 import Data.Functor (void)
 import Data.Time.Clock.POSIX (getPOSIXTime)
 import qualified Data.ByteString as B
@@ -29,7 +32,12 @@ socketWriter :: N.Socket -> ActorIO (Mailbox ActorIO B.ByteString)
 socketWriter socket = registerTerminal (pure socket) (\sock -> MTL.liftIO . NB.sendAll sock) (MTL.liftIO . N.close)
 
 socketReader :: N.Socket -> [Mailbox ActorIO B.ByteString] -> ActorIO ()
-socketReader socket = registerSource (pure socket) (\sock -> MTL.liftIO $ NB.recv sock 1024) (MTL.liftIO . N.close)
+socketReader socket =
+    let recvAction sock = do
+            bytes <- MTL.liftIO $ NB.recv sock 1024
+            when (B.length bytes == 0) $ MTL.throwError ActorTreeTerminated
+            pure bytes
+    in registerSource (pure socket) recvAction (MTL.liftIO . N.close)
 
 actorCreatorAction :: String -> String -> (N.Socket, N.SockAddr) -> ActorIO ()
 actorCreatorAction host port (acceptedSocket, clientAddrInfo) = do
