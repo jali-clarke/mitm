@@ -11,6 +11,7 @@ import Control.Concurrent (forkIO)
 import qualified Control.Concurrent.Chan as C
 import Data.Functor (void)
 import Data.Time.Clock.POSIX (getPOSIXTime)
+import qualified System.Environment as E
 
 import Daemon
 import Actor.ActorContext
@@ -34,8 +35,11 @@ instance ActorContext ActorIO where
     getMessageBase = MTL.liftIO . C.readChan
     putMessageBase message = MTL.liftIO . flip C.writeChan message
 
-instance TimeContext ActorIO where
-    unixTimeStamp = MTL.liftIO $ fmap round getPOSIXTime
+instance ArgsContext ActorIO where
+    getArgs = MTL.liftIO E.getArgs
 
 instance LoggingContext ActorIO where
     logMessage = MTL.liftIO . putStrLn
+
+instance TimeContext ActorIO where
+    unixTimeStamp = MTL.liftIO $ fmap round getPOSIXTime

@@ -6,7 +6,6 @@ import Data.Functor (void)
 import qualified Data.ByteString as B
 import qualified Network.Socket as N
 import qualified Network.Socket.ByteString as NB
-import System.Environment (getArgs)
 import qualified System.IO as IO
 
 import Actor
@@ -88,7 +87,7 @@ main =
             N.listen socket 5
             pure socket
     in void . runActorIO $ do
-        args <- MTL.liftIO getArgs
+        args <- getArgs
         case args of
             [listenPort, host, port] -> do
                 logger <- consoleLogger
