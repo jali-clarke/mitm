@@ -60,9 +60,9 @@ instance LoggingContext ActorIO where
 instance SocketContext ActorIO where
     type CommunicatorSocket ActorIO = N.Socket
     type ListenSocket ActorIO = N.Socket
-    type SocketInfo ActorIO = String
+    type SocketInfo ActorIO = N.SockAddr
 
-    acceptConnection listenSocket = MTL.liftIO . fmap (\(socket, addrInfo) -> (socket, show addrInfo)) $ N.accept listenSocket
+    acceptConnection listenSocket = MTL.liftIO $ N.accept listenSocket
 
     listenAsServer listenPort = 
         let hints = N.defaultHints {N.addrSocketType=N.Stream, N.addrFlags=[N.AI_PASSIVE]}

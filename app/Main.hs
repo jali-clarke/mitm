@@ -31,11 +31,11 @@ socketReader identifier logger socket =
             putMessage (identifier ++ " disconnected") logger
     in registerSource (pure socket) recvAction cleanupAction
 
-actorCreatorAction :: (ActorContext m, BinFileHandleContext m, LoggingContext m, SocketContext m, TimeContext m, SocketInfo m ~ String) => Mailbox m String -> String -> String -> (CommunicatorSocket m, SocketInfo m) -> m ()
+actorCreatorAction :: (ActorContext m, BinFileHandleContext m, LoggingContext m, SocketContext m, TimeContext m, Show (SocketInfo m)) => Mailbox m String -> String -> String -> (CommunicatorSocket m, SocketInfo m) -> m ()
 actorCreatorAction logger host port (acceptedSocket, clientAddrInfo) = do
     timeStamp <- unixTimeStamp
     
-    let identifier = connectionIdentifier timeStamp clientAddrInfo
+    let identifier = connectionIdentifier timeStamp (show clientAddrInfo)
         clientSocketIdentifier = identifier ++ " client socket"
         serverSocketIdentifier = identifier ++ " server socket"
         logFileBase = identifier ++ "_connection.log"
@@ -53,7 +53,7 @@ actorCreatorAction logger host port (acceptedSocket, clientAddrInfo) = do
     socketReader clientSocketIdentifier logger acceptedSocket [clientRequestLoggerMailbox, serverWriterMailbox]
     socketReader serverSocketIdentifier logger serverSocket [serverResponseLoggerMailbox, clientWriterMailbox]
 
-actorCreator :: (ActorContext m, BinFileHandleContext m, LoggingContext m, SocketContext m, TimeContext m, SocketInfo m ~ String) => Mailbox m String -> String -> String -> m (Mailbox m (CommunicatorSocket m, SocketInfo m))
+actorCreator :: (ActorContext m, BinFileHandleContext m, LoggingContext m, SocketContext m, TimeContext m, Show (SocketInfo m)) => Mailbox m String -> String -> String -> m (Mailbox m (CommunicatorSocket m, SocketInfo m))
 actorCreator logger host port = noResource registerTerminal $ actorCreatorAction logger host port
 
 consoleLogger :: (ActorContext m, LoggingContext m) => m (Mailbox m String)
