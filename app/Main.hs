@@ -3,7 +3,6 @@
 import Control.Monad (when)
 import qualified Control.Monad.Except as MTL
 import Data.Functor (void)
-import Data.Time.Clock.POSIX (getPOSIXTime)
 import qualified Data.ByteString as B
 import qualified Network.Socket as N
 import qualified Network.Socket.ByteString as NB
@@ -12,6 +11,8 @@ import qualified System.IO as IO
 
 import Actor
 import ActorIO
+
+import Effects
 
 fileWriter :: FilePath -> ActorIO (Mailbox ActorIO B.ByteString)
 fileWriter filePath =
@@ -44,7 +45,7 @@ socketReader identifier logger socket =
 
 actorCreatorAction :: Mailbox ActorIO String -> String -> String -> (N.Socket, N.SockAddr) -> ActorIO ()
 actorCreatorAction logger host port (acceptedSocket, clientAddrInfo) = do
-    timeStamp <- MTL.liftIO $ fmap round getPOSIXTime
+    timeStamp <- unixTimeStamp
     
     let identifier = connectionIdentifier timeStamp clientAddrInfo
         clientSocketIdentifier = identifier ++ " client socket"
