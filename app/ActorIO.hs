@@ -12,6 +12,8 @@ import qualified Control.Concurrent.Chan as C
 import qualified Data.ByteString as B
 import Data.Functor (void)
 import Data.Time.Clock.POSIX (getPOSIXTime)
+import qualified Network.Socket as N
+import qualified Network.Socket.ByteString as NB
 import qualified System.Environment as E
 import qualified System.IO as IO
 
@@ -54,6 +56,36 @@ instance BinFileHandleContext ActorIO where
 
 instance LoggingContext ActorIO where
     logMessage = MTL.liftIO . putStrLn
+
+instance SocketContext ActorIO where
+    type CommunicatorSocket ActorIO = N.Socket
+    type ListenSocket ActorIO = N.Socket
+    type SocketInfo ActorIO = String
+
+    acceptConnection listenSocket = MTL.liftIO . fmap (\(socket, addrInfo) -> (socket, show addrInfo)) $ N.accept listenSocket
+
+    listenAsServer listenPort = 
+        let hints = N.defaultHints {N.addrSocketType=N.Stream, N.addrFlags=[N.AI_PASSIVE]}
+        in MTL.liftIO $ do
+            addrInfo : _ <- N.getAddrInfo (Just hints) (Nothing) (Just listenPort)
+            socket <- N.socket (N.addrFamily addrInfo) (N.addrSocketType addrInfo) (N.addrProtocol addrInfo)
+            N.setSocketOption socket N.ReuseAddr 1
+            N.bind socket (N.addrAddress addrInfo)
+            N.listen socket 5
+            pure socket
+
+    connectToServer host port =
+        let hints = N.defaultHints {N.addrSocketType=N.Stream}
+        in MTL.liftIO $ do
+            serverAddrInfo : _ <- N.getAddrInfo (Just hints) (Just host) (Just port)
+            serverSocket <- N.socket (N.addrFamily serverAddrInfo) (N.addrSocketType serverAddrInfo) (N.addrProtocol serverAddrInfo)
+            N.connect serverSocket (N.addrAddress serverAddrInfo)
+            pure serverSocket
+
+    readSocket socket = MTL.liftIO $ NB.recv socket 1024
+    writeSocket socket bytes = MTL.liftIO $ NB.sendAll socket bytes
+
+    closeSocket socket = MTL.liftIO $ N.close socket
 
 instance TimeContext ActorIO where
     unixTimeStamp = MTL.liftIO $ fmap round getPOSIXTime
