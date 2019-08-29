@@ -1,25 +1,30 @@
-{-# LANGUAGE FlexibleContexts, TypeFamilies #-}
+{-# LANGUAGE ConstraintKinds, DataKinds, FlexibleContexts, TypeFamilies #-}
 
 import Control.Monad (when)
 import qualified Control.Monad.Except as MTL
 import Data.Functor (void)
 import qualified Data.ByteString as B
 
+import AllConstraint
+
 import Actor
 import ActorIO
 
 import Effects
 
-fileWriter :: (ActorContext m, BinFileHandleContext m) => FilePath -> m (Mailbox m B.ByteString)
+type ActorContextWith cs m = (ActorContext m, All cs m)
+type ActorCreatorContext m = ActorContextWith '[BinFileHandleContext, LoggingContext, SocketContext, TimeContext] m
+
+fileWriter :: ActorContextWith '[BinFileHandleContext] m => FilePath -> m (Mailbox m B.ByteString)
 fileWriter filePath = registerTerminal (openBinHandle filePath) (\handle -> writeBinHandle handle) closeBinHandle
 
 connectionIdentifier :: Int -> String -> FilePath
 connectionIdentifier timeStamp addrInfo = addrInfo ++ "_" ++ show timeStamp
 
-socketWriter :: (ActorContext m, SocketContext m) => CommunicatorSocket m -> m (Mailbox m B.ByteString)
+socketWriter :: ActorContextWith '[SocketContext] m => CommunicatorSocket m -> m (Mailbox m B.ByteString)
 socketWriter socket = registerTerminal (pure socket) writeSocket closeSocket
 
-socketReader :: (ActorContext m, LoggingContext m, SocketContext m) => FilePath -> Mailbox m String -> CommunicatorSocket m -> [Mailbox m B.ByteString] -> m ()
+socketReader :: ActorContextWith '[LoggingContext, SocketContext] m => FilePath -> Mailbox m String -> CommunicatorSocket m -> [Mailbox m B.ByteString] -> m ()
 socketReader identifier logger socket =
     let recvAction sock = do
             bytes <- readSocket sock
@@ -31,7 +36,7 @@ socketReader identifier logger socket =
             putMessage (identifier ++ " disconnected") logger
     in registerSource (pure socket) recvAction cleanupAction
 
-actorCreatorAction :: (ActorContext m, BinFileHandleContext m, LoggingContext m, SocketContext m, TimeContext m, Show (SocketInfo m)) => Mailbox m String -> String -> String -> (CommunicatorSocket m, SocketInfo m) -> m ()
+actorCreatorAction :: (ActorCreatorContext m, Show (SocketInfo m)) => Mailbox m String -> String -> String -> (CommunicatorSocket m, SocketInfo m) -> m ()
 actorCreatorAction logger host port (acceptedSocket, clientAddrInfo) = do
     timeStamp <- unixTimeStamp
     
@@ -53,10 +58,10 @@ actorCreatorAction logger host port (acceptedSocket, clientAddrInfo) = do
     socketReader clientSocketIdentifier logger acceptedSocket [clientRequestLoggerMailbox, serverWriterMailbox]
     socketReader serverSocketIdentifier logger serverSocket [serverResponseLoggerMailbox, clientWriterMailbox]
 
-actorCreator :: (ActorContext m, BinFileHandleContext m, LoggingContext m, SocketContext m, TimeContext m, Show (SocketInfo m)) => Mailbox m String -> String -> String -> m (Mailbox m (CommunicatorSocket m, SocketInfo m))
+actorCreator :: (ActorCreatorContext m, Show (SocketInfo m)) => Mailbox m String -> String -> String -> m (Mailbox m (CommunicatorSocket m, SocketInfo m))
 actorCreator logger host port = noResource registerTerminal $ actorCreatorAction logger host port
 
-consoleLogger :: (ActorContext m, LoggingContext m) => m (Mailbox m String)
+consoleLogger :: ActorContextWith '[LoggingContext] m => m (Mailbox m String)
 consoleLogger = noResource registerTerminal logMessage
 
 main :: IO ()
