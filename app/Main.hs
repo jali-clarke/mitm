@@ -72,10 +72,10 @@ actorCreatorAction logger host port (acceptedSocket, clientAddrInfo) = do
     socketReader serverSocketIdentifier logger serverSocket [serverResponseLoggerMailbox, clientWriterMailbox]
 
 actorCreator :: Mailbox ActorIO String -> String -> String -> ActorIO (Mailbox ActorIO (N.Socket, N.SockAddr))
-actorCreator logger host port = registerTerminal (pure ()) (const $ actorCreatorAction logger host port) (const $ pure ())
+actorCreator logger host port = noResource registerTerminal $ actorCreatorAction logger host port
 
 consoleLogger :: ActorIO (Mailbox ActorIO String)
-consoleLogger = registerTerminal (pure ()) (const $ MTL.liftIO . putStrLn) (const $ pure ())
+consoleLogger = noResource registerTerminal $ MTL.liftIO . putStrLn
 
 main :: IO ()
 main =
