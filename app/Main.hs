@@ -1,5 +1,6 @@
 import qualified Control.Monad.IO.Class as MTL
 import Data.Functor (void)
+import Data.Time.Clock.POSIX (getPOSIXTime)
 import qualified Data.ByteString as B
 import qualified Network.Socket as N
 import qualified Network.Socket.ByteString as NB
@@ -18,8 +19,11 @@ fileWriter filePath =
             pure handle
     in registerTerminal initializer (\handle -> MTL.liftIO . B.hPut handle) (MTL.liftIO . IO.hClose)
 
-connectionIdentifier :: N.SockAddr -> FilePath
-connectionIdentifier = const "connection.log"
+addrInfoToString :: N.SockAddr -> String
+addrInfoToString = show
+
+connectionIdentifier :: Int -> N.SockAddr -> FilePath
+connectionIdentifier timeStamp addrInfo = addrInfoToString addrInfo ++ "_" ++ show timeStamp ++ "_connection.log"
 
 socketWriter :: N.Socket -> ActorIO (Mailbox ActorIO B.ByteString)
 socketWriter socket = registerTerminal (pure socket) (\sock -> MTL.liftIO . NB.sendAll sock) (MTL.liftIO . N.close)
@@ -29,7 +33,9 @@ socketReader socket = registerSource (pure socket) (\sock -> MTL.liftIO $ NB.rec
 
 actorCreatorAction :: String -> String -> (N.Socket, N.SockAddr) -> ActorIO ()
 actorCreatorAction host port (acceptedSocket, clientAddrInfo) = do
-    let identifier = connectionIdentifier clientAddrInfo
+    timeStamp <- MTL.liftIO $ fmap round getPOSIXTime
+    
+    let identifier = connectionIdentifier timeStamp clientAddrInfo
         hints = N.defaultHints {N.addrSocketType=N.Stream}
 
     serverSocket <- MTL.liftIO $ do

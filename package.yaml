@@ -24,6 +24,7 @@ dependencies:
 - bytestring
 - mtl
 - network
+- time
 
 library:
   source-dirs: src
