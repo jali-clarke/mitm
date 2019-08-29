@@ -36,3 +36,6 @@ instance ActorContext ActorIO where
 
 instance TimeContext ActorIO where
     unixTimeStamp = MTL.liftIO $ fmap round getPOSIXTime
+
+instance LoggingContext ActorIO where
+    logMessage = MTL.liftIO . putStrLn

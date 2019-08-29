@@ -74,8 +74,8 @@ actorCreatorAction logger host port (acceptedSocket, clientAddrInfo) = do
 actorCreator :: Mailbox ActorIO String -> String -> String -> ActorIO (Mailbox ActorIO (N.Socket, N.SockAddr))
 actorCreator logger host port = noResource registerTerminal $ actorCreatorAction logger host port
 
-consoleLogger :: ActorIO (Mailbox ActorIO String)
-consoleLogger = noResource registerTerminal $ MTL.liftIO . putStrLn
+consoleLogger :: (ActorContext m, LoggingContext m) => m (Mailbox m String)
+consoleLogger = noResource registerTerminal logMessage
 
 main :: IO ()
 main =
@@ -94,5 +94,5 @@ main =
                 logger <- consoleLogger
                 actorCreatorMailbox <- actorCreator logger host port
                 registerTopLevelSource (initializer listenPort) (MTL.liftIO . N.accept) (MTL.liftIO . N.close) [actorCreatorMailbox]
-            _ -> MTL.liftIO $ putStrLn "usage: mitm listenPort host port"
+            _ -> logMessage "usage: mitm listenPort host port"
 
