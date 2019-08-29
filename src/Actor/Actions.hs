@@ -40,5 +40,5 @@ registerActor initializer action cleanup targets = do
 registerTerminal :: ActorContext m => m a -> (a -> b -> m c) -> (a -> m d) -> m (Mailbox m b)
 registerTerminal initializer action cleanup = registerActor initializer action cleanup []
 
-noResource :: ActorContext m => (m () -> (a -> b) -> (a -> m ()) -> d) -> b -> d
+noResource :: ActorContext m => (m () -> (() -> b) -> (() -> m ()) -> d) -> b -> d
 noResource registrar action = registrar (pure ()) (const action) (const $ pure ())
