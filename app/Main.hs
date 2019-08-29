@@ -6,20 +6,14 @@ import Data.Functor (void)
 import qualified Data.ByteString as B
 import qualified Network.Socket as N
 import qualified Network.Socket.ByteString as NB
-import qualified System.IO as IO
 
 import Actor
 import ActorIO
 
 import Effects
 
-fileWriter :: FilePath -> ActorIO (Mailbox ActorIO B.ByteString)
-fileWriter filePath =
-    let initializer = MTL.liftIO $ do
-            handle <- IO.openBinaryFile filePath IO.AppendMode
-            IO.hSetBuffering handle IO.NoBuffering
-            pure handle
-    in registerTerminal initializer (\handle -> MTL.liftIO . B.hPut handle) (MTL.liftIO . IO.hClose)
+fileWriter :: (ActorContext m, BinFileHandleContext m) => FilePath -> m (Mailbox m B.ByteString)
+fileWriter filePath = registerTerminal (openBinHandle filePath) (\handle -> writeBinHandle handle) closeBinHandle
 
 addrInfoToString :: N.SockAddr -> String
 addrInfoToString = show
