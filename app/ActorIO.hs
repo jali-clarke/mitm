@@ -9,6 +9,7 @@ import qualified Control.Monad.Except as MTL
 
 import Control.Concurrent (forkIO)
 import qualified Control.Concurrent.Chan as C
+import Control.Exception (IOException, catch)
 import qualified Data.ByteString as B
 import Data.Functor (void)
 import Data.Time.Clock.POSIX (getPOSIXTime)
@@ -82,7 +83,11 @@ instance SocketContext ActorIO where
             N.connect serverSocket (N.addrAddress serverAddrInfo)
             pure serverSocket
 
-    readSocket socket = MTL.liftIO $ NB.recv socket 1024
+    readSocket socket =
+        let handler :: IOException -> IO B.ByteString
+            handler = const $ pure B.empty
+        in MTL.liftIO $ NB.recv socket 1024 `catch` handler
+
     writeSocket socket bytes = MTL.liftIO $ NB.sendAll socket bytes
 
     closeSocket socket = MTL.liftIO $ N.close socket
